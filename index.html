@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UrbanSight AI — AI Mobile Urban Intelligence Platform | Infothon 7.0</title>
+    
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet GIS Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --bg-canvas: #090D16;
+            --bg-card: #111827;
+            --bg-card-hover: #1F2937;
+            --border-color: #1F2937;
+            --primary: #00E5FF;
+            --accent: #FF5E1E;
+            --warning: #F59E0B;
+            --success: #10B981;
+            --text-main: #F9FAFB;
+            --text-muted: #9CA3AF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-canvas);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Top Navigation Header */
+        header {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo-box {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, var(--accent), #FF8A00);
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 94, 30, 0.4);
+        }
+
+        .logo-title h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge-pill {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--primary);
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            text-transform: uppercase;
+        }
+
+        .logo-title p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.15rem;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #FF7A00);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(255, 94, 30, 0.3);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-muted);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 4.5rem 2rem 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 94, 30, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(255, 94, 30, 0.3);
+            padding: 4px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .hero h2 {
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -1.5px;
+            margin-bottom: 1.25rem;
+        }
+
+        .hero h2 span {
+            background: linear-gradient(135deg, var(--primary), #3B82F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            font-size: 1.18rem;
+            color: var(--text-muted);
+            max-width: 780px;
+            margin: 0 auto 2.5rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            max-width: 1200px;
+            margin: 0 auto 4rem;
+            padding: 0 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1.5rem;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+        }
+
+        .stat-card.accent-card {
+            border-color: rgba(255, 94, 30, 0.4);
+            background: linear-gradient(180deg, rgba(255, 94, 30, 0.05), var(--bg-card));
+        }
+
+        .stat-number {
+            font-size: 2.3rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-card.accent-card .stat-number {
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .stat-sub {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* Interactive Map Preview Section */
+        .section-box {
+            max-width: 1200px;
+            margin: 0 auto 4rem;
+            padding: 0 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h3 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .map-container {
+            height: 480px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0B0F19;
+        }
+
+        /* Feature Pillars Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1.75rem;
+            transition: transform 0.2s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h4 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        footer {
+            background: #060911;
+            border-top: 1px solid var(--border-color);
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .footer-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="logo-box">
+            <div class="logo-icon">
+                <i class="fa-solid fa-bus"></i>
+            </div>
+            <div class="logo-title">
+                <h1>UrbanSight AI <span class="badge-pill">SIH26124</span></h1>
+                <p>Infothon 7.0 • VVCE, Mysuru • Smart Cities & Mobility</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <a href="final.md" class="btn btn-outline" target="_blank">
+                <i class="fa-regular fa-file-lines"></i> View Presentation Deck (.md)
+            </a>
+            <a href="#demo-map" class="btn btn-primary">
+                <i class="fa-solid fa-play"></i> Live Sensor Grid
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-kicker">
+            <i class="fa-solid fa-microchip"></i> AGENTIC AI & ON-BUS EDGE PERCEPTION GRID
+        </div>
+        <h2>Transforming City Buses Into<br><span>Autonomous Road Intelligence</span></h2>
+        <p class="hero-desc">
+            UrbanSight AI turns everyday municipal transit fleets into real-time edge-scanning units. 
+            Detecting road hazards, potholes, waterlogging, and traffic bottlenecks in real-time—closing the loop from detection to PWD repair dispatch in under 3 minutes with zero new CapEx.
+        </p>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem;">
+            <a href="final.md" class="btn btn-primary" style="padding: 0.85rem 1.6rem; font-size: 1rem;">
+                <i class="fa-solid fa-book-open"></i> Full Infothon 7.0 PPT Guide
+            </a>
+            <a href="https://github.com" class="btn btn-outline" style="padding: 0.85rem 1.6rem; font-size: 1rem;" target="_blank">
+                <i class="fa-brands fa-github"></i> GitHub Repository
+            </a>
+        </div>
+    </section>
+
+    <!-- Key Metrics Banner -->
+    <div class="stats-grid">
+        <div class="stat-card accent-card">
+            <div class="stat-number">75% Faster</div>
+            <div class="stat-label">PWD Repair Dispatch Cycle</div>
+            <div class="stat-sub">Collapsing status quo of 14–21 days down to &lt;48 hours (&lt;3 min auto-ticket).</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">40% Less</div>
+            <div class="stat-label">Road Fatality Risk</div>
+            <div class="stat-sub">Preventative intervention before road craters claim commuter lives (2,385 deaths in 2024).</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">85%+</div>
+            <div class="stat-label">City Arterial Coverage</div>
+            <div class="stat-sub">Daily coverage across bus corridors vs &lt;15% from fixed highway AI cameras.</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">₹16.2 Cr</div>
+            <div class="stat-label">Year-1 Addressable SAM</div>
+            <div class="stat-sub">169 PM e-Bus Sewa cities × ₹80,000/mo municipal SaaS subscription.</div>
+        </div>
+    </div>
+
+    <!-- Live GIS Demo Section -->
+    <section class="section-box" id="demo-map">
+        <div class="section-header">
+            <div>
+                <h3>Real-Time Fleet & Hazard Telemetry</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Simulated live transit grid with on-bus YOLOv8 detections and DBSCAN spatial clustering.</p>
+            </div>
+            <span class="badge-pill" style="color: var(--success); border-color: rgba(16, 185, 129, 0.4);">
+                ● 4 AGENTS ACTIVE & INGESTING
+            </span>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </section>
+
+    <!-- 4 Autonomous Agents Section -->
+    <section class="section-box">
+        <div class="section-header">
+            <div>
+                <h3>Multi-Agent Autonomous Orchestration</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">How the end-to-end data pipeline functions without human triage lag.</p>
+            </div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-eye"></i></div>
+                <h4>Agent 1: Edge Vision Perception</h4>
+                <p>Runs quantized YOLOv8 Nano at 30 FPS on bus compute. Irrevocably blurs faces & plates on-chip, sending &lt;15 KB GeoJSON telemetry.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                <h4>Agent 2: DBSCAN Spatial Clustering</h4>
+                <p>Merges repeat passes from multiple buses within a 5-meter window into a single verified civic hazard with longitudinal depth history.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-clipboard-check"></i></div>
+                <h4>Agent 3: Municipal Dispatch Agent</h4>
+                <p>Automatically files official PWD work orders with exact GPS coordinates, timestamped photo evidence, and severity scores in &lt;3 minutes.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                <h4>Agent 4: Fleet Advisory Stream</h4>
+                <p>Broadcasts live detour and hazard warning alerts directly to oncoming bus driver consoles via bi-directional WebSockets.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="logo-box">
+                <div class="logo-icon"><i class="fa-solid fa-bus"></i></div>
+                <div class="logo-title">
+                    <h1 style="font-size: 1.1rem;">UrbanSight AI</h1>
+                    <p>Department of Information Science & Engineering • VVCE, Mysuru</p>
+                </div>
+            </div>
+            <p class="footer-text">
+                Developed for <strong>Infothon 7.0</strong> · Problem Statement #07 [SIH26124] · Built with FastAPI, Leaflet, YOLOv8 & DBSCAN.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize Leaflet Map centered on Mysuru / Bengaluru
+        const map = L.map('map', {
+            zoomControl: true,
+            scrollWheelZoom: false
+        }).setView([12.3160, 76.6413], 13); // VVCE Mysuru Area
+
+        // Dark Matter Map Tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Simulated Buses
+        const buses = [
+            { id: "BUS-KA09-102", lat: 12.3175, lng: 76.6430, route: "Route 10A" },
+            { id: "BUS-KA09-411", lat: 12.3110, lng: 76.6380, route: "Route 12B" },
+            { id: "BUS-KA09-883", lat: 12.3240, lng: 76.6500, route: "Ring Road Express" }
+        ];
+
+        buses.forEach(b => {
+            const busIcon = L.divIcon({
+                className: 'custom-bus-pin',
+                html: `<div style="background:#00E5FF; color:#090D16; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; box-shadow:0 0 12px #00E5FF;"><i class="fa-solid fa-bus"></i></div>`,
+                iconSize: [26, 26]
+            });
+            L.marker([b.lat, b.lng], { icon: busIcon })
+                .bindPopup(`<b>${b.id}</b><br>${b.route}<br><span style="color:#10B981;">● Online - Edge Vision Active</span>`)
+                .addTo(map);
+        });
+
+        // Simulated Hazards
+        const hazards = [
+            { type: "Critical Pothole (Depth: 9cm)", lat: 12.3190, lng: 76.6450, color: "#FF5E1E", conf: "96.4%" },
+            { type: "Waterlogging (30m stretch)", lat: 12.3130, lng: 76.6395, color: "#3B82F6", conf: "92.1%" },
+            { type: "Surface Fissure", lat: 12.3220, lng: 76.6480, color: "#F59E0B", conf: "88.7%" }
+        ];
+
+        hazards.forEach(h => {
+            const hazardIcon = L.divIcon({
+                className: 'custom-hazard-pin',
+                html: `<div style="background:${h.color}; color:#fff; border-radius:6px; padding:3px 7px; font-size:10px; font-weight:700; white-space:nowrap; box-shadow:0 0 10px ${h.color};">⚠️ ${h.type}</div>`,
+                iconSize: [100, 20]
+            });
+            L.marker([h.lat, h.lng], { icon: hazardIcon })
+                .bindPopup(`<b>${h.type}</b><br>Confidence: ${h.conf}<br><span style="color:#FF5E1E;">DBSCAN Cluster Confirmed &rarr; PWD Dispatched</span>`)
+                .addTo(map);
+        });
+    </script>
+</body>
+</html>
