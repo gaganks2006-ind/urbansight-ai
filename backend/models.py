@@ -3,94 +3,83 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 
-class PriorityEnum(str, Enum):
-    CRITICAL = "CRITICAL"
-    HIGH = "HIGH"
-    MEDIUM = "MEDIUM"
-    LOW = "LOW"
+class HazardType(str, Enum):
+    POTHOLE = "POTHOLE"
+    ROAD_CRACK = "ROAD_CRACK"
+    WATERLOGGING = "WATERLOGGING"
+    CONGESTION = "CONGESTION"
+    ROAD_DEBRIS = "ROAD_DEBRIS"
+    ACCIDENT = "ACCIDENT"
 
-class IncidentStatus(str, Enum):
-    REPORTED = "REPORTED"
-    VERIFIED = "VERIFIED"
-    DISPATCHED = "DISPATCHED"
-    RESCUED = "RESCUED"
-    FALSE_ALARM = "FALSE_ALARM"
+class SeverityLevel(str, Enum):
+    CRITICAL_P1 = "CRITICAL_P1"
+    HIGH_P2 = "HIGH_P2"
+    MEDIUM_P3 = "MEDIUM_P3"
+    LOW_P4 = "LOW_P4"
 
-class AssetType(str, Enum):
-    BOAT_RESCUE = "BOAT_RESCUE"
-    AMBULANCE = "AMBULANCE"
-    CHOPPER_AIRLIFT = "CHOPPER_AIRLIFT"
-    RELIEF_CAMP = "RELIEF_CAMP"
-    FIRE_RESCUE = "FIRE_RESCUE"
+class TicketStatus(str, Enum):
+    DETECTED = "DETECTED"
+    CLUSTERED = "CLUSTERED"
+    AUTO_DISPATCHED = "AUTO_DISPATCHED"
+    CREW_ASSIGNED = "CREW_ASSIGNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    RESOLVED = "RESOLVED"
 
-class AssetStatus(str, Enum):
-    AVAILABLE = "AVAILABLE"
-    DISPATCHED = "DISPATCHED"
-    MAINTENANCE = "MAINTENANCE"
+class BusTelemetry(BaseModel):
+    bus_id: str
+    route_name: str
+    lat: float
+    lng: float
+    speed_kmh: float
+    heading_deg: float
+    camera_status: str = "ONLINE_30FPS"
+    privacy_blur_active: bool = True
+    last_ping: str = Field(default_factory=lambda: datetime.now().isoformat())
 
-class DistressSignal(BaseModel):
-    id: Optional[str] = None
-    source: str  # e.g. "TWITTER", "SOS_HOTLINE", "SMS_GATEWAY", "SATELLITE_BEACON"
-    content: str
-    channel: str = "PUBLIC"
-    raw_location: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+class HazardDetection(BaseModel):
+    id: str
+    bus_id: str
+    hazard_type: HazardType
+    severity: SeverityLevel
+    confidence: float  # e.g., 0.96
+    lat: float
+    lng: float
+    location_name: str
+    damage_depth_cm: Optional[float] = None
+    affected_length_m: Optional[float] = None
+    pass_count: int = 1
+    cluster_id: Optional[str] = None
+    image_url: Optional[str] = None
+    status: TicketStatus = TicketStatus.DETECTED
+    pwd_ticket_id: Optional[str] = None
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
-class ParsedIncident(BaseModel):
-    id: str
-    source: str
-    content: str
+class PWDWorkOrder(BaseModel):
+    ticket_id: str
+    hazard_id: str
+    hazard_type: HazardType
+    severity: SeverityLevel
     location_name: str
     lat: float
     lng: float
-    hazard_type: str  # e.g., "FLASH_FLOOD", "BUILDING_COLLAPSE", "LANDSLIDE", "MEDICAL_EMERGENCY"
-    victim_count: int
-    priority: PriorityEnum
-    confidence_score: float  # 0.0 to 1.0
-    status: IncidentStatus
-    assigned_asset_ids: List[str] = []
-    eta_minutes: Optional[int] = None
-    verification_notes: str = ""
+    cluster_count: int
+    sla_hours: int = 48
+    dispatched_to: str = "BBMP Ward 142 / PWD Division 4"
+    status: TicketStatus = TicketStatus.AUTO_DISPATCHED
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+class DriverAdvisory(BaseModel):
+    id: str
+    bus_id: str
+    hazard_type: HazardType
+    distance_meters: int
+    recommendation: str
+    alert_level: str = "WARNING"
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
-class EmergencyAsset(BaseModel):
+class AgentEventLog(BaseModel):
     id: str
-    name: str
-    asset_type: AssetType
-    lat: float
-    lng: float
-    status: AssetStatus
-    capacity: int
-    contact_phone: str
-    current_incident_id: Optional[str] = None
-
-class AgentActionLog(BaseModel):
-    id: str
+    agent_name: str  # "Agent 1: Vision", "Agent 2: DBSCAN", "Agent 3: PWD Dispatch", "Agent 4: Fleet Advisory"
+    action: str
+    detail: str
     timestamp: str = Field(default_factory=lambda: datetime.now().strftime("%H:%M:%S"))
-    agent_name: str  # "SocialSentinel", "TriageVerifier", "LogisticsDispatcher", "AdvisoryAgent"
-    level: str       # "INFO", "WARN", "ALERT", "SUCCESS"
-    message: str
-    details: Optional[Dict[str, Any]] = None
-
-class PublicAdvisory(BaseModel):
-    id: str
-    title: str
-    affected_region: str
-    severity: PriorityEnum
-    message_en: str
-    message_hi: str
-    recommended_actions: List[str]
-    issued_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-
-class SystemStats(BaseModel):
-    total_incidents: int
-    critical_count: int
-    high_count: int
-    dispatched_count: int
-    rescued_count: int
-    total_assets: int
-    available_assets: int
-    people_rescued: int
-    avg_response_time_min: float

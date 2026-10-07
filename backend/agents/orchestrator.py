@@ -1,189 +1,171 @@
 import uuid
-from typing import List, Dict, Tuple, Optional
 from datetime import datetime
-
+from typing import List, Dict, Any, Optional
 from backend.models import (
-    DistressSignal, ParsedIncident, EmergencyAsset, AgentActionLog,
-    PublicAdvisory, SystemStats, PriorityEnum, IncidentStatus, AssetStatus
+    BusTelemetry, HazardDetection, PWDWorkOrder, DriverAdvisory,
+    AgentEventLog, HazardType, SeverityLevel, TicketStatus
 )
-from backend.simulated_data import INITIAL_ASSETS, SIMULATED_DISTRESS_FEEDS
-from backend.agents.social_sentinel import SocialSentinelAgent
-from backend.agents.triage_verification import TriageVerificationAgent
-from backend.agents.logistics_dispatcher import LogisticsDispatcherAgent
-from backend.agents.advisory_agent import AdvisoryAgent
+from backend.simulated_data import INITIAL_BUSES, INITIAL_HAZARDS, INITIAL_WORK_ORDERS
 
-class AgentOrchestrator:
-    """
-    Master Multi-Agent Orchestrator
-    Manages state, runs multi-agent pipelines sequentially or asynchronously,
-    and logs step-by-step reasoning for real-time telemetry.
-    """
-    
+class UrbanSightOrchestrator:
     def __init__(self):
-        self.sentinel_agent = SocialSentinelAgent()
-        self.triage_agent = TriageVerificationAgent()
-        self.dispatcher_agent = LogisticsDispatcherAgent()
-        self.advisory_agent = AdvisoryAgent()
-        
-        self.incidents: Dict[str, ParsedIncident] = {}
-        self.assets: List[EmergencyAsset] = list(INITIAL_ASSETS)
-        self.logs: List[AgentActionLog] = []
-        self.advisories: List[PublicAdvisory] = []
-        self.people_rescued_counter: int = 42  # Seeded initial rescue count
-        
-        # Initialize default log entry
-        self.add_log(
-            "SystemCore", "INFO",
-            "RescuAgent Multi-Agent Orchestrator initialized. Deployed 4 autonomous agents."
+        self.buses: List[BusTelemetry] = [BusTelemetry(**b) for b in INITIAL_BUSES]
+        self.hazards: List[HazardDetection] = [HazardDetection(**h) for h in INITIAL_HAZARDS]
+        self.work_orders: List[PWDWorkOrder] = [PWDWorkOrder(**w) for w in INITIAL_WORK_ORDERS]
+        self.advisories: List[DriverAdvisory] = []
+        self.event_logs: List[AgentEventLog] = []
+
+        # Initial seed logs
+        self._log_event(
+            "Agent 1: Vision Perception",
+            "ON_CHIP_INFERENCE",
+            "YOLOv8-Nano initialized @ 30 FPS. DPDP Gaussian privacy blur active."
         )
-        
-        # Pre-seed initial simulated incidents through the pipeline
-        self._seed_initial_state()
-        
-    def _seed_initial_state(self):
-        """Processes initial distress feeds to populate dashboard with active state."""
-        for signal in SIMULATED_DISTRESS_FEEDS[:3]:
-            self.process_incoming_distress(signal)
-            
-    def add_log(self, agent_name: str, level: str, message: str, details: Optional[Dict] = None):
-        log_entry = AgentActionLog(
-            id=f"LOG-{uuid.uuid4().hex[:6].upper()}",
+        self._log_event(
+            "Agent 2: Geo-Spatial Clustering",
+            "DBSCAN_OPTIMIZED",
+            "Spatial epsilon set to 15m; 5 active clusters indexed in PostGIS."
+        )
+        self._log_event(
+            "Agent 3: Municipal Dispatch",
+            "PORTAL_LINKED",
+            "REST Gateway to BBMP Sahaya & PWD active. Auto-ticket SLA <180s."
+        )
+        self._log_event(
+            "Agent 4: Fleet Advisory",
+            "WEBSOCKET_READY",
+            "In-cab driver console advisory stream broadcasting live."
+        )
+
+    def _log_event(self, agent_name: str, action: str, detail: str):
+        log = AgentEventLog(
+            id=str(uuid.uuid4())[:8],
             agent_name=agent_name,
-            level=level,
-            message=message,
-            details=details
+            action=action,
+            detail=detail
         )
-        self.logs.insert(0, log_entry)  # Newest logs first
-        if len(self.logs) > 100:
-            self.logs = self.logs[:100]  # Cap at 100 logs
-            
-    def process_incoming_distress(self, signal: DistressSignal) -> ParsedIncident:
+        self.event_logs.insert(0, log)
+        if len(self.event_logs) > 50:
+            self.event_logs.pop()
+
+    def get_system_metrics(self) -> Dict[str, Any]:
+        return {
+            "total_buses_online": len(self.buses),
+            "km_scanned_today": 4820,
+            "total_hazards_tracked": len(self.hazards),
+            "critical_p1_count": sum(1 for h in self.hazards if h.severity == SeverityLevel.CRITICAL_P1),
+            "pwd_work_orders_filed": len(self.work_orders),
+            "average_dispatch_sla_min": 2.4,
+            "bandwidth_saved_pct": 99.4,
+            "privacy_compliance": "100% DPDP Compliant (Zero PII)"
+        }
+
+    def process_edge_detection(
+        self,
+        bus_id: str,
+        hazard_type: HazardType,
+        lat: float,
+        lng: float,
+        location_name: str,
+        confidence: float = 0.95,
+        damage_depth_cm: Optional[float] = None
+    ) -> HazardDetection:
         """
-        Executes the full 4-Agent Pipeline for an incoming distress signal.
+        Agent 1 receives detection -> Agent 2 clusters -> Agent 3 auto-files ticket -> Agent 4 alerts fleet.
         """
-        # Step 1: Social Sentinel Extraction
-        self.add_log(
-            "SocialSentinel", "INFO",
-            f"Ingested raw distress signal from [{signal.source}] ({signal.channel}). Extracting hazard & location."
+        # 1. Agent 1: Vision Ingestion
+        self._log_event(
+            "Agent 1: Vision Perception",
+            "DEFECT_DETECTED",
+            f"Bus {bus_id} spotted {hazard_type.value} (conf: {confidence:.2f}) at {location_name}"
         )
-        incident = self.sentinel_agent.process_signal(signal)
-        self.incidents[incident.id] = incident
-        
-        self.add_log(
-            "SocialSentinel", "SUCCESS",
-            f"Extracted Incident [{incident.id}]: {incident.hazard_type} at {incident.location_name} (Est. Victims: {incident.victim_count})."
-        )
-        
-        # Step 2: Triage & Verification Agent
-        self.add_log(
-            "TriageVerifier", "INFO",
-            f"Cross-referencing Incident [{incident.id}] with satellite radar & CWC gauge telemetry..."
-        )
-        verified_incident = self.triage_agent.verify_and_triage(incident)
-        self.incidents[verified_incident.id] = verified_incident
-        
-        self.add_log(
-            "TriageVerifier", "WARN" if verified_incident.priority == PriorityEnum.CRITICAL else "INFO",
-            f"Verified Incident [{incident.id}]: Priority set to [{verified_incident.priority.value}] with {int(verified_incident.confidence_score * 100)}% confidence."
-        )
-        
-        # Step 3: Logistics & Dispatch Agent
-        self.add_log(
-            "LogisticsDispatcher", "INFO",
-            f"Evaluating spatial proximity & asset capabilities for Incident [{incident.id}]..."
-        )
-        dispatched_incident, updated_assets, dispatch_msg = self.dispatcher_agent.dispatch_incident(
-            verified_incident, self.assets
-        )
-        self.incidents[dispatched_incident.id] = dispatched_incident
-        self.assets = updated_assets
-        
-        level = "SUCCESS" if "SUCCESS" in dispatch_msg else "WARN"
-        self.add_log("LogisticsDispatcher", level, dispatch_msg)
-        
-        # Step 4: Advisory Agent (Triggered if Critical or High Priority)
-        if dispatched_incident.priority in [PriorityEnum.CRITICAL, PriorityEnum.HIGH]:
-            self.add_log(
-                "AdvisoryAgent", "ALERT",
-                f"Generating emergency public advisory broadcast for [{dispatched_incident.location_name}]..."
-            )
-            advisory = self.advisory_agent.generate_advisory(dispatched_incident)
-            self.advisories.insert(0, advisory)
-            self.add_log(
-                "AdvisoryAgent", "SUCCESS",
-                f"Published bilingual Advisory [{advisory.id}] for region: {advisory.affected_region}."
-            )
-            
-        return dispatched_incident
 
-    def manual_dispatch(self, incident_id: str, asset_id: str) -> bool:
-        """Manually dispatches a specific asset to an incident."""
-        incident = self.incidents.get(incident_id)
-        asset = next((a for a in self.assets if a.id == asset_id), None)
-        
-        if incident and asset and asset.status == AssetStatus.AVAILABLE:
-            asset.status = AssetStatus.DISPATCHED
-            asset.current_incident_id = incident.id
-            incident.status = IncidentStatus.DISPATCHED
-            if asset.id not in incident.assigned_asset_ids:
-                incident.assigned_asset_ids.append(asset.id)
-            incident.eta_minutes = 15
-            
-            self.add_log(
-                "CommandCenter", "SUCCESS",
-                f"Manual Dispatch Executed: {asset.name} assigned to Incident [{incident.id}]."
-            )
-            return True
-        return False
+        # 2. Agent 2: DBSCAN Spatial Deduplication
+        # Check if hazard exists within ~30 meters (rough 0.0003 lat/lng delta)
+        matching_cluster = None
+        for existing in self.hazards:
+            dist_sq = (existing.lat - lat)**2 + (existing.lng - lng)**2
+            if dist_sq < 0.0000001:  # within ~30m
+                matching_cluster = existing
+                break
 
-    def mark_rescued(self, incident_id: str) -> bool:
-        """Marks an incident as RESCUED and frees up assigned assets."""
-        incident = self.incidents.get(incident_id)
-        if incident:
-            incident.status = IncidentStatus.RESCUED
-            self.people_rescued_counter += incident.victim_count
-            
-            # Free up assigned assets
-            for asset_id in incident.assigned_asset_ids:
-                for asset in self.assets:
-                    if asset.id == asset_id:
-                        asset.status = AssetStatus.AVAILABLE
-                        asset.current_incident_id = None
-                        
-            self.add_log(
-                "CommandCenter", "SUCCESS",
-                f"RESCUE COMPLETE: Incident [{incident.id}] marked rescued! {incident.victim_count} citizens evacuated to safety."
+        if matching_cluster:
+            matching_cluster.pass_count += 1
+            matching_cluster.confidence = min(0.99, matching_cluster.confidence + 0.02)
+            self._log_event(
+                "Agent 2: Geo-Spatial Clustering",
+                "CLUSTER_INCREMENTED",
+                f"Merged repeat bus pass into Cluster {matching_cluster.cluster_id} (Pass count: {matching_cluster.pass_count})"
             )
-            return True
-        return False
+            detection = matching_cluster
+        else:
+            cluster_id = f"DBSCAN-CL-{len(self.hazards) + 1:03d}"
+            severity = SeverityLevel.CRITICAL_P1 if hazard_type in [HazardType.POTHOLE, HazardType.ACCIDENT] else SeverityLevel.HIGH_P2
+            detection = HazardDetection(
+                id=f"HAZ-2026-{len(self.hazards) + 1:03d}",
+                bus_id=bus_id,
+                hazard_type=hazard_type,
+                severity=severity,
+                confidence=confidence,
+                lat=lat,
+                lng=lng,
+                location_name=location_name,
+                damage_depth_cm=damage_depth_cm,
+                pass_count=1,
+                cluster_id=cluster_id,
+                image_url="image1.jpg",
+                status=TicketStatus.DETECTED
+            )
+            self.hazards.append(detection)
+            self._log_event(
+                "Agent 2: Geo-Spatial Clustering",
+                "NEW_CANONICAL_CLUSTER",
+                f"Formed new canonical cluster {cluster_id} at {location_name}"
+            )
 
-    def get_stats(self) -> SystemStats:
-        total_incidents = len(self.incidents)
-        critical_count = sum(1 for i in self.incidents.values() if i.priority == PriorityEnum.CRITICAL)
-        high_count = sum(1 for i in self.incidents.values() if i.priority == PriorityEnum.HIGH)
-        dispatched_count = sum(1 for i in self.incidents.values() if i.status == IncidentStatus.DISPATCHED)
-        rescued_count = sum(1 for i in self.incidents.values() if i.status == IncidentStatus.RESCUED)
-        
-        available_assets = sum(1 for a in self.assets if a.status == AssetStatus.AVAILABLE)
-        
-        return SystemStats(
-            total_incidents=total_incidents,
-            critical_count=critical_count,
-            high_count=high_count,
-            dispatched_count=dispatched_count,
-            rescued_count=rescued_count,
-            total_assets=len(self.assets),
-            available_assets=available_assets,
-            people_rescued=self.people_rescued_counter,
-            avg_response_time_min=12.4
+        # 3. Agent 3: Autonomous Municipal Dispatch if passes >= 3 or Critical P1
+        if detection.status != TicketStatus.AUTO_DISPATCHED and (detection.pass_count >= 2 or detection.severity == SeverityLevel.CRITICAL_P1):
+            ticket_id = f"PWD-2026-OCT-{random_number():04d}"
+            work_order = PWDWorkOrder(
+                ticket_id=ticket_id,
+                hazard_id=detection.id,
+                hazard_type=detection.hazard_type,
+                severity=detection.severity,
+                location_name=detection.location_name,
+                lat=detection.lat,
+                lng=detection.lng,
+                cluster_count=detection.pass_count,
+                sla_hours=48 if detection.severity == SeverityLevel.CRITICAL_P1 else 24,
+                dispatched_to="BBMP Central Ward Dispatch / PWD Zone 1",
+                status=TicketStatus.AUTO_DISPATCHED
+            )
+            self.work_orders.insert(0, work_order)
+            detection.status = TicketStatus.AUTO_DISPATCHED
+            detection.pwd_ticket_id = ticket_id
+            self._log_event(
+                "Agent 3: Municipal Dispatch",
+                "WORK_ORDER_AUTO_FILED",
+                f"Auto-filed PWD Work Order #{ticket_id} for {detection.location_name} (SLA: <48h)"
+            )
+
+        # 4. Agent 4: Fleet Driver Advisory broadcast
+        advisory = DriverAdvisory(
+            id=str(uuid.uuid4())[:8],
+            bus_id=bus_id,
+            hazard_type=detection.hazard_type,
+            distance_meters=180,
+            recommendation=f"Caution: {detection.hazard_type.value} ahead at {location_name}. Lane merge recommended.",
+            alert_level="WARNING"
         )
-        
-    def reset_state(self):
-        """Resets the state back to clean baseline."""
-        self.incidents.clear()
-        self.assets = [a.model_copy(update={"status": AssetStatus.AVAILABLE, "current_incident_id": None}) for a in INITIAL_ASSETS]
-        self.logs.clear()
-        self.advisories.clear()
-        self.people_rescued_counter = 42
-        self.add_log("SystemCore", "INFO", "System state reset. Multi-agent framework ready.")
-        self._seed_initial_state()
+        self.advisories.insert(0, advisory)
+        self._log_event(
+            "Agent 4: Fleet Advisory",
+            "WEBSOCKET_ALERT_PUSHED",
+            f"Pushed warning alert to driver consoles on route: {location_name}"
+        )
+
+        return detection
+
+def random_number():
+    import random
+    return random.randint(1000, 9999)

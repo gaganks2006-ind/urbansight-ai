@@ -7,14 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 
-from backend.models import DistressSignal, ParsedIncident, EmergencyAsset, AgentActionLog, PublicAdvisory, SystemStats
-from backend.agents.orchestrator import AgentOrchestrator
-from backend.simulated_data import SIMULATED_DISTRESS_FEEDS
+from backend.models import (
+    BusTelemetry, HazardDetection, PWDWorkOrder, DriverAdvisory,
+    AgentEventLog, HazardType, SeverityLevel
+)
+from backend.agents.orchestrator import UrbanSightOrchestrator
 
 app = FastAPI(
-    title="RescuAgent AI — Autonomous Disaster Command Platform",
-    description="Multi-Agent AI framework for real-time disaster information aggregation, verification, dispatch, and public advisory.",
-    version="1.0.0"
+    title="UrbanSight AI — Mobile Urban Intelligence Platform",
+    description="Multi-Agent AI framework for continuous transit-fleet road sensing, DBSCAN spatial clustering, automated PWD dispatch, and driver advisories (SIH26124).",
+    version="2.0.0"
 )
 
 # CORS Middleware
@@ -35,90 +37,65 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Initialize Orchestrator Singleton
-orchestrator = AgentOrchestrator()
+orchestrator = UrbanSightOrchestrator()
 
-# Request schemas for API endpoints
-class DistressRequest(BaseModel):
-    source: str
-    content: str
-    channel: Optional[str] = "CUSTOM_SIMULATION"
-    raw_location: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-
-class DispatchRequest(BaseModel):
-    incident_id: str
-    asset_id: str
-
-class RescueRequest(BaseModel):
-    incident_id: str
+class DetectSimulationRequest(BaseModel):
+    bus_id: Optional[str] = "BMTC-KA01-E542"
+    hazard_type: Optional[HazardType] = HazardType.POTHOLE
+    lat: Optional[float] = 12.9350
+    lng: Optional[float] = 77.6820
+    location_name: Optional[str] = "Sarjapur-ORR Junction (Near EcoWorld)"
+    confidence: Optional[float] = 0.965
+    damage_depth_cm: Optional[float] = 9.8
 
 @app.get("/")
 def read_root(request: Request):
-    """Renders the main Disaster Command Dashboard."""
+    """Renders the main UrbanSight AI Command Dashboard."""
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/api/incidents", response_model=List[ParsedIncident])
-def get_incidents():
-    return list(orchestrator.incidents.values())
+@app.get("/api/metrics")
+def get_metrics():
+    return orchestrator.get_system_metrics()
 
-@app.get("/api/assets", response_model=List[EmergencyAsset])
-def get_assets():
-    return orchestrator.assets
+@app.get("/api/buses")
+def get_buses():
+    return orchestrator.buses
 
-@app.get("/api/logs", response_model=List[AgentActionLog])
-def get_logs():
-    return orchestrator.logs
+@app.get("/api/hazards")
+def get_hazards():
+    return orchestrator.hazards
 
-@app.get("/api/advisories", response_model=List[PublicAdvisory])
+@app.get("/api/work-orders")
+def get_work_orders():
+    return orchestrator.work_orders
+
+@app.get("/api/advisories")
 def get_advisories():
     return orchestrator.advisories
 
-@app.get("/api/stats", response_model=SystemStats)
-def get_stats():
-    return orchestrator.get_stats()
+@app.get("/api/events")
+def get_event_logs():
+    return orchestrator.event_logs
 
-@app.post("/api/distress", response_model=ParsedIncident)
-def ingest_distress_signal(req: DistressRequest):
-    signal = DistressSignal(
-        source=req.source,
-        content=req.content,
-        channel=req.channel or "API",
-        raw_location=req.raw_location,
+@app.post("/api/simulate-detection")
+def simulate_detection(req: DetectSimulationRequest):
+    detection = orchestrator.process_edge_detection(
+        bus_id=req.bus_id,
+        hazard_type=req.hazard_type,
         lat=req.lat,
-        lng=req.lng
+        lng=req.lng,
+        location_name=req.location_name,
+        confidence=req.confidence,
+        damage_depth_cm=req.damage_depth_cm
     )
-    processed = orchestrator.process_incoming_distress(signal)
-    return processed
-
-@app.post("/api/simulate-stream")
-def simulate_random_distress():
-    """Injects a random pre-seeded or procedural distress signal into the system."""
-    random_signal = random.choice(SIMULATED_DISTRESS_FEEDS)
-    # Clone with new ID so it creates a distinct incident
-    new_signal = random_signal.model_copy(update={"id": None})
-    processed = orchestrator.process_incoming_distress(new_signal)
-    return {"status": "SUCCESS", "incident": processed}
-
-@app.post("/api/dispatch")
-def manual_dispatch(req: DispatchRequest):
-    success = orchestrator.manual_dispatch(req.incident_id, req.asset_id)
-    if not success:
-        raise HTTPException(status_code=400, detail="Dispatch failed. Verify incident ID and asset availability.")
-    return {"status": "SUCCESS", "message": f"Asset {req.asset_id} dispatched to {req.incident_id}"}
-
-@app.post("/api/rescue")
-def mark_rescued(req: RescueRequest):
-    success = orchestrator.mark_rescued(req.incident_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Incident not found.")
-    return {"status": "SUCCESS", "message": f"Incident {req.incident_id} marked rescued."}
+    return {
+        "status": "SUCCESS",
+        "detection": detection,
+        "metrics": orchestrator.get_system_metrics()
+    }
 
 @app.post("/api/reset")
 def reset_system():
-    orchestrator.reset_state()
-    return {"status": "SUCCESS", "message": "System state reset to baseline."}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
+    global orchestrator
+    orchestrator = UrbanSightOrchestrator()
+    return {"status": "RESET_SUCCESSFUL"}

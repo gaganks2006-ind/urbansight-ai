@@ -3,225 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RescuAgent AI — Disaster Command Platform</title>
+    <title>UrbanSight AI — Smart City ICCC Command System | Infothon 7.0</title>
     
-    <!-- Google Fonts & FontAwesome Icons -->
+    <!-- Google Fonts & Font Awesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Leaflet GIS Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="dark-theme">
+<body>
 
-    <!-- Top Navigation Header -->
+    <!-- App Header -->
     <header class="app-header">
         <div class="logo-group">
-            <div class="logo-icon">
-                <i class="fa-solid fa-shield-halved"></i>
+            <div class="logo-badge">
+                <i class="fa-solid fa-bus"></i>
             </div>
             <div>
-                <h1 class="brand-title">RescuAgent AI <span class="badge-tag">AUTONOMOUS DISASTER COMMAND</span></h1>
-                <p class="brand-sub">SIH261687 / SDG 11 & 13 • Real-Time Multi-Agent Crisis Grid</p>
+                <h1 class="brand-title">
+                    UrbanSight AI
+                    <span class="pill-tag pill-cyan">PS #07 · SIH26124</span>
+                    <span class="pill-tag pill-orange">VVCE MYSURU</span>
+                </h1>
+                <p class="brand-subtitle">Autonomous Mobile Urban Sensing Grid • 4 Agents Active</p>
             </div>
         </div>
 
-        <div class="status-indicator-group">
-            <div class="status-badge defcon-1">
-                <span class="pulse-dot red"></span>
-                <span>STATUS: RED ALERT (LEVEL 1)</span>
+        <div class="header-status-center">
+            <div class="live-indicator">
+                <span class="pulse-dot"></span>
+                <span>GRID: LIVE (30 FPS)</span>
             </div>
-            <div class="status-badge agent-count">
-                <i class="fa-solid fa-robot"></i>
-                <span>4 AGENTS ACTIVE</span>
-            </div>
-            <div class="clock-display" id="clock-timer">00:00:00 UTC</div>
+            <div class="clock-telemetry" id="telemetry-clock">19:54:00 IST</div>
         </div>
 
-        <div class="action-btn-group">
-            <button class="btn btn-primary" id="btn-simulate-event">
-                <i class="fa-solid fa-bolt"></i> Inject Distress Event
+        <div class="header-actions">
+            <button class="btn btn-primary" id="btn-simulate-detect">
+                <i class="fa-solid fa-bolt"></i> Simulate Bus Pass
             </button>
-            <button class="btn btn-secondary" id="btn-open-custom-modal">
-                <i class="fa-solid fa-plus"></i> Custom Incident
+            <button class="btn btn-secondary" id="btn-driver-alert">
+                <i class="fa-solid fa-tablet-screen-button"></i> Driver In-Cab HUD
             </button>
-            <button class="btn btn-danger" id="btn-reset-system">
-                <i class="fa-solid fa-rotate-right"></i> Reset System
+            <button class="btn btn-outline" id="btn-toggle-privacy">
+                Privacy Blur: ON
             </button>
+            <a href="/final.md" target="_blank" class="btn btn-outline">
+                <i class="fa-regular fa-file-lines"></i> PPT Deck
+            </a>
         </div>
     </header>
 
-    <!-- Top Key Metrics Dashboard -->
-    <section class="metrics-banner">
-        <div class="metric-card">
-            <div class="metric-icon red-glow"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <div class="metric-info">
-                <span class="metric-label">CRITICAL ALARMS</span>
-                <span class="metric-value" id="val-critical">0</span>
+    <!-- Top Key Metric Strip -->
+    <section class="metrics-strip">
+        <div class="metric-pill-card">
+            <div class="metric-data">
+                <h4>Fleets Monitored</h4>
+                <div class="metric-val" id="metric-buses">10,000</div>
             </div>
+            <div class="metric-icon-box"><i class="fa-solid fa-bus-simple"></i></div>
         </div>
-
-        <div class="metric-card">
-            <div class="metric-icon orange-glow"><i class="fa-solid fa-fire-flame-curved"></i></div>
-            <div class="metric-info">
-                <span class="metric-label">ACTIVE INCIDENTS</span>
-                <span class="metric-value" id="val-total-incidents">0</span>
+        <div class="metric-pill-card">
+            <div class="metric-data">
+                <h4>Km Scanned Today</h4>
+                <div class="metric-val purple" id="metric-km">4,820</div>
             </div>
+            <div class="metric-icon-box"><i class="fa-solid fa-route"></i></div>
         </div>
-
-        <div class="metric-card">
-            <div class="metric-icon blue-glow"><i class="fa-solid fa-truck-medical"></i></div>
-            <div class="metric-info">
-                <span class="metric-label">ASSETS DEPLOYED</span>
-                <span class="metric-value" id="val-deployed-assets">0 / 7</span>
+        <div class="metric-pill-card">
+            <div class="metric-data">
+                <h4>Arterial Coverage</h4>
+                <div class="metric-val green">85%+</div>
             </div>
+            <div class="metric-icon-box"><i class="fa-solid fa-satellite"></i></div>
         </div>
-
-        <div class="metric-card">
-            <div class="metric-icon green-glow"><i class="fa-solid fa-user-shield"></i></div>
-            <div class="metric-info">
-                <span class="metric-label">CITIZENS RESCUED</span>
-                <span class="metric-value" id="val-people-rescued">0</span>
+        <div class="metric-pill-card">
+            <div class="metric-data">
+                <h4>Repair Dispatch SLA</h4>
+                <div class="metric-val orange">&lt; 48 Hrs</div>
             </div>
+            <div class="metric-icon-box"><i class="fa-solid fa-stopwatch-20"></i></div>
         </div>
-
-        <div class="metric-card">
-            <div class="metric-icon purple-glow"><i class="fa-solid fa-stopwatch"></i></div>
-            <div class="metric-info">
-                <span class="metric-label">AVG RESPONSE TIME</span>
-                <span class="metric-value" id="val-avg-time">12.4m</span>
+        <div class="metric-pill-card">
+            <div class="metric-data">
+                <h4>Bandwidth Saved</h4>
+                <div class="metric-val green">99.4%</div>
             </div>
+            <div class="metric-icon-box"><i class="fa-solid fa-shield-halved"></i></div>
         </div>
     </section>
 
-    <!-- Main Grid Workspace -->
-    <main class="main-dashboard-grid">
+    <!-- Main Command Grid -->
+    <main class="command-grid-layout">
+        
+        <!-- Left Column: Live GIS Map + Dashcam Simulator -->
+        <div class="center-left-column">
+            
+            <!-- Panel 1: Leaflet GIS Real-Time Map -->
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-header-title">
+                        <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
+                        Smart City Integrated Command & Control Center (ICCC) GIS Canvas
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Bengaluru & Mysuru Transit Mesh
+                    </div>
+                </div>
 
-        <!-- Column 1: Interactive Leaflet GIS Command Map -->
-        <div class="grid-card map-card-container">
-            <div class="card-header">
-                <h3><i class="fa-solid fa-earth-asia"></i> Real-Time GIS Tactical Map (Assam / Brahmaputra Zone)</h3>
-                <div class="map-legend">
-                    <span class="legend-item"><span class="dot red-pulse"></span> Critical</span>
-                    <span class="legend-item"><span class="dot orange"></span> High</span>
-                    <span class="legend-item"><span class="dot blue"></span> Rescued</span>
-                    <span class="legend-item"><i class="fa-solid fa-ship icon-boat"></i> Boat</span>
-                    <span class="legend-item"><i class="fa-solid fa-helicopter icon-air"></i> Airlift</span>
+                <div class="map-viewport">
+                    <div id="gis-map"></div>
+                    
+                    <div class="map-floating-legend">
+                        <div style="font-weight:700; margin-bottom:2px;">MAP OVERLAY KEY</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#00E5FF;"></span> BMTC/KSRTC Buses (30 FPS)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#EF4444;"></span> Critical Potholes (P1)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#3B82F6;"></span> Severe Waterlogging (P2)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#8B5CF6;"></span> Live Traffic Chokepoint (P3)</div>
+                    </div>
                 </div>
             </div>
-            <div id="gis-map" class="leaflet-map-canvas"></div>
+
+            <!-- Panel 2: Live On-Bus Dashcam Vision Simulator -->
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-header-title">
+                        <i class="fa-solid fa-video" style="color: var(--accent);"></i>
+                        Edge Camera Perception HUD (BMTC-KA01-E542 Windshield Feed)
+                    </div>
+                    <span class="pill-tag pill-cyan">TensorRT INT8 • 28ms</span>
+                </div>
+
+                <div class="dashcam-split-panel">
+                    <div class="video-simulation-canvas-box">
+                        <canvas id="dashcam-canvas" width="480" height="250"></canvas>
+                        
+                        <div class="hud-corner-telemetry">
+                            <div>YOLOv8-Nano: 30 FPS</div>
+                            <div>LATENCY: 28.2ms</div>
+                            <div>GPS: 12.9238°N, 77.6745°E</div>
+                        </div>
+
+                        <div class="hud-privacy-badge">
+                            <i class="fa-solid fa-shield-cat"></i> DPDP PRIVACY BLUR: ACTIVE
+                        </div>
+                    </div>
+
+                    <div class="hud-controls-sidebar">
+                        <div class="hud-stats-group">
+                            <div class="hud-stat-item">
+                                <label>Edge Model Architecture</label>
+                                <span>YOLOv8n (RDD2022 Fine-tuned)</span>
+                            </div>
+                            <div class="hud-stat-item">
+                                <label>Telemetry Payload Size</label>
+                                <span style="color: var(--success);">&lt; 14.8 KB GeoJSON</span>
+                            </div>
+                            <div class="hud-stat-item">
+                                <label>Hardware Profile</label>
+                                <span>NVIDIA Jetson Orin Nano (15W)</span>
+                            </div>
+                        </div>
+
+                        <div style="font-size:0.75rem; color:var(--text-muted); background:rgba(255,255,255,0.02); padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
+                            Zero raw video stream. Only cryptographic metadata leaves the transit bus.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Column 2: Autonomous Multi-Agent Execution Log Feed -->
-        <div class="grid-card terminal-card-container">
-            <div class="card-header">
-                <h3><i class="fa-solid fa-terminal"></i> Multi-Agent Thought & Action Terminal</h3>
-                <span class="terminal-status"><i class="fa-solid fa-circle-notch fa-spin"></i> Monitoring</span>
+        <!-- Right Column: Multi-Agent Engine & PWD Work Orders -->
+        <div class="right-column">
+            
+            <!-- Panel 3: 4-Agent Pipeline Workflow Stepper -->
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-header-title">
+                        <i class="fa-solid fa-robot" style="color: var(--primary);"></i>
+                        Autonomous Multi-Agent Consensus Pipeline
+                    </div>
+                </div>
+
+                <div class="agent-pipeline-box">
+                    <div class="agent-step-item active" id="agent-step-1">
+                        <div class="agent-step-icon"><i class="fa-solid fa-eye"></i></div>
+                        <div class="agent-step-content">
+                            <h5>Agent 1: Vision Perception</h5>
+                            <p>Detects defect & applies DPDP on-chip Gaussian privacy blur.</p>
+                        </div>
+                    </div>
+                    <div class="agent-step-item" id="agent-step-2">
+                        <div class="agent-step-icon"><i class="fa-solid fa-diagram-project"></i></div>
+                        <div class="agent-step-content">
+                            <h5>Agent 2: Geo-Spatial Clustering</h5>
+                            <p>DBSCAN merges repeat bus passes into 1 canonical ticket.</p>
+                        </div>
+                    </div>
+                    <div class="agent-step-item" id="agent-step-3">
+                        <div class="agent-step-icon"><i class="fa-solid fa-ticket"></i></div>
+                        <div class="agent-step-content">
+                            <h5>Agent 3: Municipal PWD Dispatch</h5>
+                            <p>Auto-files work order to BBMP/PWD portal in &lt;3 minutes.</p>
+                        </div>
+                    </div>
+                    <div class="agent-step-item" id="agent-step-4">
+                        <div class="agent-step-icon"><i class="fa-solid fa-bullhorn"></i></div>
+                        <div class="agent-step-content">
+                            <h5>Agent 4: Fleet Advisory</h5>
+                            <p>Broadcasts real-time detour alert to upstream driver HUDs.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="terminal-body" id="agent-terminal-logs">
-                <div class="log-line info">[SystemCore] System online. Agent pipeline active.</div>
+
+            <!-- Panel 4: Live Event Decision Ticker -->
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-header-title">
+                        <i class="fa-solid fa-terminal" style="color: var(--accent);"></i>
+                        Real-Time Agent Decision Feed
+                    </div>
+                </div>
+                <div class="activity-log-feed" id="activity-feed"></div>
             </div>
+
+            <!-- Panel 5: PWD Work-Order Queue -->
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-header-title">
+                        <i class="fa-solid fa-list-check" style="color: var(--success);"></i>
+                        Autonomous PWD Work-Order Queue
+                    </div>
+                    <span class="pill-tag pill-cyan">&lt; 48H SLA</span>
+                </div>
+
+                <div class="pwd-table-container">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Ticket ID</th>
+                                <th>Type</th>
+                                <th>Location</th>
+                                <th>Cluster</th>
+                                <th>SLA Countdown</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="work-orders-tbody">
+                            <!-- Populated dynamically via app.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
     </main>
 
-    <!-- Live Social Media Stream & Crisis Feed -->
-    <section class="social-feed-grid">
-        <div class="grid-card social-feed-card" style="grid-column: span 2;">
-            <div class="card-header">
-                <h3><i class="fa-brands fa-x-twitter"></i> Live Geo-Tagged Social Media Crisis Stream (#AssamFloods / #SOSGuwahati)</h3>
-                <span class="badge-tag" id="social-feed-count">5 Live Posts</span>
-            </div>
-            <div class="feed-list" id="social-media-feed-container">
-                <!-- Dynamically populated via JS -->
-            </div>
-        </div>
-    </section>
-
-    <!-- Lower Workspace Grid: Triage Queue & Public Advisories -->
-    <section class="secondary-dashboard-grid">
-
-        <!-- Incident Triage Queue -->
-        <div class="grid-card triage-queue-card">
-            <div class="card-header">
-                <h3><i class="fa-solid fa-list-check"></i> Incident Triage & Asset Dispatch Queue</h3>
-                <span class="badge" id="queue-count-badge">0 Incidents</span>
-            </div>
-            <div class="table-responsive">
-                <table class="triage-table">
-                    <thead>
-                        <tr>
-                            <th>Incident ID</th>
-                            <th>Location</th>
-                            <th>Hazard</th>
-                            <th>Victims</th>
-                            <th>Priority</th>
-                            <th>Confidence</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="triage-table-body">
-                        <!-- Dynamically populated -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Public Advisories & Emergency Broadcast Generator -->
-        <div class="grid-card advisory-card">
-            <div class="card-header">
-                <h3><i class="fa-solid fa-bullhorn"></i> Autonomous Multilingual Advisory Bulletins</h3>
-                <span class="badge badge-alert">SMS BROADCAST ACTIVE</span>
-            </div>
-            <div class="advisories-feed" id="advisory-feed">
-                <!-- Dynamically populated -->
-            </div>
-        </div>
-
-    </section>
-
-    <!-- Custom Incident Modal -->
-    <div class="modal-overlay" id="custom-incident-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-tower-broadcast"></i> Ingest Custom Emergency Distress Call</h3>
-                <button class="close-btn" id="btn-close-modal">&times;</button>
-            </div>
-            <form id="form-custom-incident">
-                <div class="form-group">
-                    <label>Signal Source</label>
-                    <select id="input-source" class="form-control">
-                        <option value="SOS_HOTLINE">Emergency Hotline (112)</option>
-                        <option value="TWITTER">Twitter / X SOS Post</option>
-                        <option value="SMS_GATEWAY">SMS Relief Gateway</option>
-                        <option value="SATELLITE_BEACON">Satellite Emergency Beacon</option>
-                    </select>
+    <!-- In-Cab Driver Alert Modal -->
+    <div class="modal-overlay" id="driver-alert-modal">
+        <div class="driver-hud-tablet">
+            <div class="driver-hud-header">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent); font-size:1.4rem;"></i>
+                    <h3 style="font-size:1.15rem; font-weight:800; color:var(--text-primary);">IN-CAB DRIVER ADVISORY (TABLET)</h3>
                 </div>
-                <div class="form-group">
-                    <label>Location Sector</label>
-                    <input type="text" id="input-location" class="form-control" placeholder="e.g. North Guwahati Ferry Ghat" required>
+                <button class="btn btn-outline" id="modal-close-btn" style="padding:4px 10px;">Close HUD</button>
+            </div>
+
+            <div class="driver-alert-box">
+                <div class="alert-hazard-icon"><i class="fa-solid fa-road-barrier"></i></div>
+                <div>
+                    <h4 id="driver-alert-title" style="color:var(--accent); font-size:1.1rem; margin-bottom:3px;">CRITICAL POTHOLE (9.4cm Depth)</h4>
+                    <p id="driver-alert-loc" style="font-size:0.85rem; color:var(--text-muted);">Outer Ring Road near Bellandur Flyover Pillar 34</p>
                 </div>
-                <div class="form-group">
-                    <label>Distress Raw Text Message</label>
-                    <textarea id="input-content" class="form-control" rows="3" placeholder="Describe trapped victims, flood water depth, or urgency..." required></textarea>
+            </div>
+
+            <div class="driver-action-nav">
+                <div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Agent 4 Guidance</div>
+                    <div id="driver-alert-advice" style="font-weight:700; color:var(--primary); font-size:0.95rem;">
+                        Move to Right Lane. Speed cap: 25 km/h. Detour recommended at next exit.
+                    </div>
                 </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit to Agent Grid</button>
+                <div style="font-family:var(--font-mono); font-size:1.1rem; font-weight:800; color:var(--warning);">
+                    150m AHEAD
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Custom Application JS -->
+
+    <!-- Main Application JS -->
     <script src="/static/js/app.js"></script>
 </body>
 </html>

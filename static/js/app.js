@@ -1,362 +1,391 @@
-// ==========================================================================
-// RescuAgent AI — Dashboard Controller JavaScript
-// ==========================================================================
+/**
+ * UrbanSight AI — Smart City ICCC Command System (Infothon 7.0)
+ * Real-time GIS map, Edge Dashcam HUD Simulator, Multi-Agent Engine, PWD Work Orders
+ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Map centered on Guwahati, Assam
-    const defaultCenter = [26.1700, 91.7500];
-    const map = L.map('gis-map').setView(defaultCenter, 12);
+    initClock();
+    initLeafletMap();
+    initDashcamSimulator();
+    initEventLogFeed();
+    initActionListeners();
+    startRealtimePolling();
+});
 
-    // Dark Tile Layer (CartoDB Dark Matter)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        maxZoom: 18
-    }).addTo(map);
+// Global State
+const state = {
+    buses: [
+        { id: "BMTC-KA01-E542", route: "Outer Ring Road Express", lat: 12.9238, lng: 77.6745, speed: 24, heading: 45, marker: null },
+        { id: "BMTC-KA57-E912", route: "Route 500D (Hebbal ↔ E-City)", lat: 12.9112, lng: 77.6380, speed: 18, heading: 180, marker: null },
+        { id: "KSRTC-KA09-E102", route: "Mysuru Ring Road (VVCE)", lat: 12.3160, lng: 76.6413, speed: 32, heading: 90, marker: null },
+        { id: "BMTC-KA03-E304", route: "Majestic ↔ Whitefield ITPL", lat: 12.9716, lng: 77.5946, speed: 15, heading: 115, marker: null }
+    ],
+    hazards: [
+        { id: "HAZ-001", type: "POTHOLE", sev: "CRITICAL_P1", lat: 12.9250, lng: 77.6760, name: "ORR Bellandur Flyover Pillar 34", depth: "9.4cm", conf: "96.4%", passes: 14, ticket: "PWD-OCT-0941" },
+        { id: "HAZ-002", type: "WATERLOGGING", sev: "HIGH_P2", lat: 12.9125, lng: 77.6395, name: "Silk Board Underpass South Lane", length: "35m", conf: "92.1%", passes: 8, ticket: "PWD-OCT-0882" },
+        { id: "HAZ-003", type: "POTHOLE", sev: "CRITICAL_P1", lat: 12.3190, lng: 76.6450, name: "VVCE Ring Road Junction, Mysuru", depth: "8.6cm", conf: "94.8%", passes: 6, ticket: "PWD-OCT-0715" },
+        { id: "HAZ-004", type: "CONGESTION", sev: "MEDIUM_P3", lat: 12.9730, lng: 77.5960, name: "Kasturba Road Bottleneck (9 km/h)", conf: "88.5%", passes: 12, ticket: null }
+    ],
+    workOrders: [
+        { ticket: "PWD-OCT-0941", type: "POTHOLE", sev: "CRITICAL_P1", loc: "ORR Bellandur Flyover Pillar 34", passes: 14, sla: "41h 20m remaining", status: "DISPATCHED" },
+        { ticket: "PWD-OCT-0882", type: "WATERLOGGING", sev: "HIGH_P2", loc: "Silk Board Underpass South Lane", passes: 8, sla: "19h 45m remaining", status: "CREW_ASSIGNED" },
+        { ticket: "PWD-OCT-0715", type: "POTHOLE", sev: "CRITICAL_P1", loc: "VVCE Ring Road Junction, Mysuru", passes: 6, sla: "44h 10m remaining", status: "IN_PROGRESS" }
+    ],
+    logs: [
+        { time: "19:54:10", agent: "Agent 1: Vision", text: "YOLOv8-Nano running @ 30 FPS. DPDP Gaussian face & plate blur ACTIVE." },
+        { time: "19:54:02", agent: "Agent 2: DBSCAN", text: "Clustered 14 bus passes into canonical hazard #HAZ-001 (5m epsilon match)." },
+        { time: "19:53:50", agent: "Agent 3: PWD Dispatch", text: "Auto-filed PWD Work Order #PWD-OCT-0941 with GPS & photo evidence (<180s SLA)." },
+        { time: "19:53:35", agent: "Agent 4: Fleet Advisory", text: "Pushed WebSocket warning alert to oncoming buses on Bellandur corridor." }
+    ],
+    settings: {
+        privacyBlur: true,
+        nightMode: false,
+        soundAlerts: false
+    },
+    map: null
+};
 
-    let incidentMarkers = {};
-    let assetMarkers = {};
-
-    // Initial Social Feed Posts
-    const socialFeedPosts = [
-        {
-            id: 'POST-801',
-            user: '@guwahati_reporter',
-            time: '2 mins ago',
-            content: 'URGENT! Water level reached 1st floor near North Guwahati Bank. 12 people trapped on roof! #AssamFloods #SOS',
-            location: 'North Guwahati Ferry Ghat',
-            lat: 26.1985,
-            lng: 91.7320
-        },
-        {
-            id: 'POST-802',
-            user: '@disaster_alert_in',
-            time: '5 mins ago',
-            content: 'Landslide blocked Jalukbari bypass flyover. 2 cars trapped under debris, 4 people injured!',
-            location: 'Jalukbari Flyover Bypass',
-            lat: 26.1550,
-            lng: 91.6850
-        },
-        {
-            id: 'POST-803',
-            user: '@fancy_bazaar_volunteers',
-            time: '12 mins ago',
-            content: '45 women & children without clean drinking water or baby food at sector 3 community hall.',
-            location: 'Fancy Bazaar Sector 3',
-            lat: 26.1820,
-            lng: 91.7420
-        },
-        {
-            id: 'POST-804',
-            user: '@cwc_river_bot',
-            time: '18 mins ago',
-            content: 'CRITICAL: Brahmaputra river level cross 49.8m (0.8m above danger line) at Chandrapur gauge station.',
-            location: 'Chandrapur Riverside Village',
-            lat: 26.2350,
-            lng: 91.9120
-        },
-        {
-            id: 'POST-805',
-            user: '@zoo_road_resident',
-            time: '25 mins ago',
-            content: 'Submerged electric pole sparking near Zoo Road Tiniali! High risk of electrocution!',
-            location: 'Zoo Road Tiniali',
-            lat: 26.1680,
-            lng: 91.7810
-        }
-    ];
-
-    // Clock update
+// 1. Clock Telemetry
+function initClock() {
+    const clockEl = document.getElementById('telemetry-clock');
+    if (!clockEl) return;
     setInterval(() => {
         const now = new Date();
-        document.getElementById('clock-timer').innerText = now.toTimeString().split(' ')[0] + ' IST';
+        clockEl.textContent = now.toTimeString().split(' ')[0] + " IST";
     }, 1000);
+}
 
-    // Render Social Feed
-    function renderSocialFeed() {
-        const container = document.getElementById('social-media-feed-container');
-        container.innerHTML = '';
+// 2. Leaflet GIS Map Initialization
+function initLeafletMap() {
+    const mapContainer = document.getElementById('gis-map');
+    if (!mapContainer) return;
 
-        socialFeedPosts.forEach(post => {
-            const item = document.createElement('div');
-            item.className = 'feed-item';
-            item.innerHTML = `
-                <div class="feed-header">
-                    <span class="feed-author"><i class="fa-brands fa-x-twitter"></i> ${post.user}</span>
-                    <span class="feed-time">${post.time}</span>
-                </div>
-                <div class="feed-content">${post.content}</div>
-                <div class="feed-actions">
-                    <span class="feed-location"><i class="fa-solid fa-location-dot"></i> ${post.location}</span>
-                    <button class="btn-process-feed" data-id="${post.id}">
-                        <i class="fa-solid fa-microchip"></i> Run Social Sentinel
-                    </button>
-                </div>
-            `;
-            
-            item.querySelector('.btn-process-feed').addEventListener('click', async () => {
-                await processSocialPost(post);
-            });
+    // Centered over Bengaluru / Karnataka transit network
+    state.map = L.map('gis-map', {
+        zoomControl: true,
+        scrollWheelZoom: true
+    }).setView([12.9350, 77.6400], 12);
 
-            container.appendChild(item);
-        });
-    }
+    // CartoDB Dark Matter Tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 19
+    }).addTo(state.map);
 
-    async function processSocialPost(post) {
-        try {
-            const resp = await fetch('/api/distress', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    source: 'TWITTER',
-                    content: post.content,
-                    raw_location: post.location,
-                    lat: post.lat,
-                    lng: post.lng
-                })
-            });
-            if (resp.ok) {
-                fetchDashboardData();
-            }
-        } catch (e) {
-            console.error('Error processing post:', e);
-        }
-    }
+    // Plot Initial Hazards
+    renderHazardsOnMap();
 
-    // Main Data Refresh Polling
-    async function fetchDashboardData() {
-        try {
-            const [incidentsRes, assetsRes, logsRes, statsRes, advisoriesRes] = await Promise.all([
-                fetch('/api/incidents'),
-                fetch('/api/assets'),
-                fetch('/api/logs'),
-                fetch('/api/stats'),
-                fetch('/api/advisories')
-            ]);
+    // Plot Initial Buses
+    renderBusesOnMap();
+}
 
-            const incidents = await incidentsRes.json();
-            const assets = await assetsRes.json();
-            const logs = await logsRes.json();
-            const stats = await statsRes.json();
-            const advisories = await advisoriesRes.json();
+function renderHazardsOnMap() {
+    state.hazards.forEach(h => {
+        let color = '#FF5E1E';
+        let iconClass = 'fa-triangle-exclamation';
 
-            updateMetrics(stats);
-            updateMapMarkers(incidents, assets);
-            updateTerminalLogs(logs);
-            updateTriageTable(incidents, assets);
-            updateAdvisories(advisories);
-        } catch (err) {
-            console.error('Failed fetching telemetry:', err);
-        }
-    }
-
-    // Update Top Metrics
-    function updateMetrics(stats) {
-        document.getElementById('val-critical').innerText = stats.critical_count;
-        document.getElementById('val-total-incidents').innerText = stats.total_incidents;
-        document.getElementById('val-deployed-assets').innerText = `${stats.total_assets - stats.available_assets} / ${stats.total_assets}`;
-        document.getElementById('val-people-rescued').innerText = stats.people_rescued;
-    }
-
-    // Update GIS Map Markers
-    function updateMapMarkers(incidents, assets) {
-        // Clear existing incident markers
-        Object.values(incidentMarkers).forEach(m => map.removeLayer(m));
-        incidentMarkers = {};
-
-        incidents.forEach(inc => {
-            let color = '#ef4444'; // CRITICAL
-            if (inc.priority === 'HIGH') color = '#f97316';
-            if (inc.priority === 'MEDIUM') color = '#eab308';
-            if (inc.status === 'RESCUED') color = '#10b981';
-
-            const circle = L.circleMarker([inc.lat, inc.lng], {
-                radius: inc.priority === 'CRITICAL' ? 12 : 8,
-                fillColor: color,
-                color: '#ffffff',
-                weight: 1.5,
-                opacity: 0.9,
-                fillOpacity: 0.75
-            }).addTo(map);
-
-            circle.bindPopup(`
-                <div style="font-family: sans-serif; font-size: 12px; color: #1e293b;">
-                    <b style="color: ${color};">[${inc.priority}] ${inc.hazard_type}</b><br/>
-                    <b>Location:</b> ${inc.location_name}<br/>
-                    <b>Victims:</b> ${inc.victim_count} citizens<br/>
-                    <b>Status:</b> ${inc.status}<br/>
-                    <small><i>${inc.verification_notes}</i></small>
-                </div>
-            `);
-
-            incidentMarkers[inc.id] = circle;
-        });
-
-        // Update Asset Markers
-        Object.values(assetMarkers).forEach(m => map.removeLayer(m));
-        assetMarkers = {};
-
-        assets.forEach(asset => {
-            let iconClass = 'fa-ship';
-            if (asset.asset_type === 'AMBULANCE') iconClass = 'fa-truck-medical';
-            if (asset.asset_type === 'CHOPPER_AIRLIFT') iconClass = 'fa-helicopter';
-            if (asset.asset_type === 'RELIEF_CAMP') iconClass = 'fa-campground';
-
-            const customHtml = `<div style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px #38bdf8;">
-                <i class="fa-solid ${iconClass}" style="font-size:12px;"></i>
-            </div>`;
-
-            const icon = L.divIcon({
-                html: customHtml,
-                className: 'custom-map-icon',
-                iconSize: [28, 28]
-            });
-
-            const marker = L.marker([asset.lat, asset.lng], { icon: icon }).addTo(map);
-            marker.bindPopup(`
-                <div style="font-family: sans-serif; font-size: 12px; color: #1e293b;">
-                    <b>${asset.name}</b><br/>
-                    <b>Type:</b> ${asset.asset_type}<br/>
-                    <b>Status:</b> ${asset.status}<br/>
-                    <b>Capacity:</b> ${asset.capacity} people<br/>
-                    <b>Contact:</b> ${asset.contact_phone}
-                </div>
-            `);
-            assetMarkers[asset.id] = marker;
-        });
-    }
-
-    // Terminal log view
-    function updateTerminalLogs(logs) {
-        const container = document.getElementById('agent-terminal-logs');
-        container.innerHTML = '';
-        logs.forEach(log => {
-            const div = document.createElement('div');
-            let levelClass = log.level.toLowerCase();
-            div.className = `log-line ${levelClass}`;
-            div.innerText = `[${log.timestamp}] [${log.agent_name}] ${log.message}`;
-            container.appendChild(div);
-        });
-    }
-
-    // Update Triage Table
-    function updateTriageTable(incidents, assets) {
-        const tbody = document.getElementById('triage-table-body');
-        tbody.innerHTML = '';
-
-        document.getElementById('queue-count-badge').innerText = `${incidents.length} Active Incidents`;
-
-        incidents.forEach(inc => {
-            const tr = document.createElement('tr');
-            
-            let actionBtn = '';
-            if (inc.status === 'RESCUED') {
-                actionBtn = `<span class="badge-status status-RESCUED"><i class="fa-solid fa-check"></i> RESCUED</span>`;
-            } else if (inc.status === 'DISPATCHED') {
-                actionBtn = `<button class="btn-process-feed btn-rescue" data-id="${inc.id}"><i class="fa-solid fa-person-shelter"></i> Mark Rescued</button>`;
-            } else {
-                actionBtn = `<button class="btn-process-feed btn-auto-dispatch" data-id="${inc.id}"><i class="fa-solid fa-paper-plane"></i> Dispatch Unit</button>`;
-            }
-
-            tr.innerHTML = `
-                <td><code>${inc.id}</code></td>
-                <td><b>${inc.location_name}</b></td>
-                <td>${inc.hazard_type}</td>
-                <td><b>${inc.victim_count}</b></td>
-                <td><span class="badge-priority ${inc.priority}">${inc.priority}</span></td>
-                <td><b>${intScore(inc.confidence_score)}%</b></td>
-                <td><span class="badge-status status-${inc.status}">${inc.status}</span></td>
-                <td>${actionBtn}</td>
-            `;
-
-            const rescueBtn = tr.querySelector('.btn-rescue');
-            if (rescueBtn) {
-                rescueBtn.addEventListener('click', async () => {
-                    await fetch('/api/rescue', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ incident_id: inc.id })
-                    });
-                    fetchDashboardData();
-                });
-            }
-
-            const autoDispatchBtn = tr.querySelector('.btn-auto-dispatch');
-            if (autoDispatchBtn) {
-                autoDispatchBtn.addEventListener('click', async () => {
-                    // Trigger dispatch simulation
-                    fetchDashboardData();
-                });
-            }
-
-            tbody.appendChild(tr);
-        });
-    }
-
-    function intScore(score) {
-        return Math.round(score * 100);
-    }
-
-    // Update Public Advisories
-    function updateAdvisories(advisories) {
-        const container = document.getElementById('advisory-feed');
-        container.innerHTML = '';
-
-        if (advisories.length === 0) {
-            container.innerHTML = '<div style="font-size:0.75rem; color:#64748b;">No active emergency advisories published yet.</div>';
-            return;
+        if (h.type === 'POTHOLE') {
+            color = h.sev === 'CRITICAL_P1' ? '#EF4444' : '#FF5E1E';
+            iconClass = 'fa-road';
+        } else if (h.type === 'WATERLOGGING') {
+            color = '#3B82F6';
+            iconClass = 'fa-water';
+        } else if (h.type === 'CONGESTION') {
+            color = '#8B5CF6';
+            iconClass = 'fa-car';
         }
 
-        advisories.forEach(adv => {
-            const card = document.createElement('div');
-            card.className = 'advisory-card-item';
-            card.innerHTML = `
-                <div class="advisory-title"><i class="fa-solid fa-triangle-exclamation"></i> ${adv.title}</div>
-                <div class="advisory-text"><b>English:</b> ${adv.message_en}</div>
-                <div class="advisory-text" style="color: #cbd5e1; font-family: sans-serif;"><b>हिन्दी:</b> ${adv.message_hi}</div>
-            `;
-            container.appendChild(card);
+        const markerHtml = `
+            <div style="position:relative; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+                <div style="position:absolute; width:100%; height:100%; border-radius:50%; background:${color}; opacity:0.3; animation:pulse 1.8s infinite;"></div>
+                <div style="width:20px; height:20px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; box-shadow:0 0 10px ${color};">
+                    <i class="fa-solid ${iconClass}"></i>
+                </div>
+            </div>
+        `;
+
+        const hazardIcon = L.divIcon({
+            className: 'hazard-custom-marker',
+            html: markerHtml,
+            iconSize: [30, 30]
+        });
+
+        const popupContent = `
+            <div style="color:#0F172A; font-family:'Plus Jakarta Sans',sans-serif; min-width:180px;">
+                <div style="font-weight:800; font-size:12px; color:${color}; margin-bottom:4px;">
+                    [${h.sev}] ${h.type}
+                </div>
+                <div style="font-size:11px; margin-bottom:6px;"><b>${h.name}</b></div>
+                <div style="font-size:10px; color:#475569; margin-bottom:2px;">AI Confidence: <b>${h.conf}</b></div>
+                ${h.depth ? `<div style="font-size:10px; color:#475569;">Measured Depth: <b>${h.depth}</b></div>` : ''}
+                ${h.length ? `<div style="font-size:10px; color:#475569;">Submerged Length: <b>${h.length}</b></div>` : ''}
+                <div style="font-size:10px; color:#475569; margin-top:4px;">DBSCAN Cluster Passes: <b>${h.passes} verified</b></div>
+                ${h.ticket ? `<div style="margin-top:6px; background:#DCFCE7; color:#15803D; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">Auto Work-Order: ${h.ticket}</div>` : ''}
+            </div>
+        `;
+
+        L.marker([h.lat, h.lng], { icon: hazardIcon })
+            .bindPopup(popupContent)
+            .addTo(state.map);
+    });
+}
+
+function renderBusesOnMap() {
+    state.buses.forEach(b => {
+        const busHtml = `
+            <div style="background:#00E5FF; color:#090D16; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; box-shadow:0 0 12px #00E5FF;">
+                <i class="fa-solid fa-bus"></i>
+            </div>
+        `;
+
+        const busIcon = L.divIcon({
+            className: 'bus-custom-marker',
+            html: busHtml,
+            iconSize: [28, 28]
+        });
+
+        b.marker = L.marker([b.lat, b.lng], { icon: busIcon })
+            .bindPopup(`
+                <div style="color:#0F172A; font-family:'Plus Jakarta Sans',sans-serif;">
+                    <div style="font-weight:800; font-size:12px; color:#0891B2;">${b.id}</div>
+                    <div style="font-size:11px; margin:2px 0 6px;">${b.route}</div>
+                    <div style="font-size:10px; color:#10B981;">● Camera: ONLINE (30 FPS)</div>
+                    <div style="font-size:10px; color:#475569;">Speed: ${b.speed} km/h • Heading: ${b.heading}°</div>
+                    <div style="font-size:10px; color:#475569;">Privacy Blur: <b>ACTIVE (DPDP)</b></div>
+                </div>
+            `)
+            .addTo(state.map);
+    });
+}
+
+// 3. Live Edge Dashcam Vision Canvas Simulator
+function initDashcamSimulator() {
+    const canvas = document.getElementById('dashcam-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let frameCount = 0;
+    const baseImage = new Image();
+    baseImage.src = 'image1.jpg';
+
+    function drawFrame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw camera frame or synthetic road gradient
+        if (baseImage.complete && baseImage.naturalWidth > 0) {
+            ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+        } else {
+            // High-tech fallback canvas road simulation
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#1E293B');
+            grad.addColorStop(0.5, '#0F172A');
+            grad.addColorStop(1, '#05070D');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Road perspective lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width * 0.45, canvas.height * 0.4);
+            ctx.lineTo(canvas.width * 0.1, canvas.height);
+            ctx.moveTo(canvas.width * 0.55, canvas.height * 0.4);
+            ctx.lineTo(canvas.width * 0.9, canvas.height);
+            ctx.stroke();
+        }
+
+        // Animated bounding boxes (YOLOv8 Detection Overlays)
+        const timeOsc = Math.sin(frameCount * 0.05);
+
+        // 1. Pothole Bounding Box (Amber)
+        const potX = canvas.width * 0.58 + timeOsc * 2;
+        const potY = canvas.height * 0.62;
+        const potW = 140;
+        const potH = 65;
+
+        ctx.strokeStyle = '#FF5E1E';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(potX, potY, potW, potH);
+
+        // Label Tag
+        ctx.fillStyle = '#FF5E1E';
+        ctx.fillRect(potX, potY - 20, 130, 20);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 9px "JetBrains Mono"';
+        ctx.fillText('POTHOLE | 96.4%', potX + 5, potY - 6);
+
+        // 2. Waterlogging Bounding Box (Cyan)
+        const watX = canvas.width * 0.22 - timeOsc * 2;
+        const watY = canvas.height * 0.52;
+        const watW = 160;
+        const watH = 60;
+
+        ctx.strokeStyle = '#00E5FF';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(watX, watY, watW, watH);
+
+        ctx.fillStyle = '#00E5FF';
+        ctx.fillRect(watX, watY - 20, 150, 20);
+        ctx.fillStyle = '#090D16';
+        ctx.font = 'bold 9px "JetBrains Mono"';
+        ctx.fillText('WATERLOGGING | 25m', watX + 5, watY - 6);
+
+        // Privacy Blur Simulation Box (Face & Plate Masking)
+        if (state.settings.privacyBlur) {
+            const blurX = canvas.width * 0.12;
+            const blurY = canvas.height * 0.45;
+            const blurW = 35;
+            const blurH = 45;
+
+            // Simulated pixelation
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.85)';
+            ctx.fillRect(blurX, blurY, blurW, blurH);
+            ctx.strokeStyle = '#10B981';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(blurX, blurY, blurW, blurH);
+
+            ctx.fillStyle = '#10B981';
+            ctx.font = '7px "JetBrains Mono"';
+            ctx.fillText('DPDP BLUR', blurX, blurY - 4);
+        }
+
+        frameCount++;
+        requestAnimationFrame(drawFrame);
+    }
+
+    drawFrame();
+}
+
+// 4. Activity Log Feed
+function initEventLogFeed() {
+    const feed = document.getElementById('activity-feed');
+    if (!feed) return;
+    feed.innerHTML = state.logs.map(log => `
+        <div class="log-entry">
+            <span class="log-time">${log.time}</span>
+            <span class="log-agent">${log.agent}:</span>
+            <span>${log.text}</span>
+        </div>
+    `).join('');
+}
+
+function pushLog(agent, text) {
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+    state.logs.unshift({ time: timeStr, agent, text });
+    if (state.logs.length > 30) state.logs.pop();
+    initEventLogFeed();
+}
+
+// 5. Interactive Action Listeners
+function initActionListeners() {
+    // 1. Simulate Detection Button
+    const btnDetect = document.getElementById('btn-simulate-detect');
+    if (btnDetect) {
+        btnDetect.addEventListener('click', () => {
+            pushLog("Agent 1: Vision Perception", "Spotted critical POTHOLE (depth: 9.8cm) on Sarjapur Outer Ring Road. Transmitting <12KB GeoJSON.");
+            highlightAgent(1);
+
+            setTimeout(() => {
+                pushLog("Agent 2: Geo-Spatial Clustering", "DBSCAN matched coordinates to existing cluster #DBSCAN-CL-041 (15th verified pass).");
+                highlightAgent(2);
+            }, 600);
+
+            setTimeout(() => {
+                const newTicket = `PWD-OCT-${Math.floor(1000 + Math.random() * 9000)}`;
+                pushLog("Agent 3: Municipal Dispatch", `Auto-filed PWD Work Order #${newTicket} to BBMP Mahadevapura Ward portal. SLA: <48h.`);
+                highlightAgent(3);
+                addNewWorkOrder(newTicket, "POTHOLE", "CRITICAL_P1", "Sarjapur Outer Ring Road", 15);
+            }, 1200);
+
+            setTimeout(() => {
+                pushLog("Agent 4: Fleet Advisory", "Broadcasted WebSocket detour alert to 6 upstream buses approaching Sarjapur junction.");
+                highlightAgent(4);
+                triggerDriverAlert("CRITICAL POTHOLE (9.8cm Depth)", "Sarjapur-ORR Junction (180m Ahead)", "Left lane merge recommended");
+            }, 1800);
         });
     }
 
-    // Button event listeners
-    document.getElementById('btn-simulate-event').addEventListener('click', async () => {
-        await fetch('/api/simulate-stream', { method: 'POST' });
-        fetchDashboardData();
-    });
-
-    document.getElementById('btn-reset-system').addEventListener('click', async () => {
-        await fetch('/api/reset', { method: 'POST' });
-        fetchDashboardData();
-    });
-
-    // Custom Modal Controls
-    const modal = document.getElementById('custom-incident-modal');
-    document.getElementById('btn-open-custom-modal').addEventListener('click', () => modal.classList.add('active'));
-    document.getElementById('btn-close-modal').addEventListener('click', () => modal.classList.remove('active'));
-    document.getElementById('btn-cancel-modal').addEventListener('click', () => modal.classList.remove('active'));
-
-    document.getElementById('form-custom-incident').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const source = document.getElementById('input-source').value;
-        const location = document.getElementById('input-location').value;
-        const content = document.getElementById('input-content').value;
-
-        await fetch('/api/distress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source: source,
-                raw_location: location,
-                content: content
-            })
+    // 2. Trigger Driver Alert Direct Button
+    const btnAlert = document.getElementById('btn-driver-alert');
+    if (btnAlert) {
+        btnAlert.addEventListener('click', () => {
+            triggerDriverAlert("CRITICAL POTHOLE", "VVCE Ring Road Junction (150m Ahead)", "Slow down to 20 km/h; move to center lane");
         });
+    }
 
-        modal.classList.remove('active');
-        fetchDashboardData();
+    // 3. Modal Close
+    const modalClose = document.getElementById('modal-close-btn');
+    const modalOverlay = document.getElementById('driver-alert-modal');
+    if (modalClose && modalOverlay) {
+        modalClose.addEventListener('click', () => {
+            modalOverlay.classList.remove('show');
+        });
+    }
+
+    // 4. Privacy Toggle
+    const btnPrivacy = document.getElementById('btn-toggle-privacy');
+    if (btnPrivacy) {
+        btnPrivacy.addEventListener('click', () => {
+            state.settings.privacyBlur = !state.settings.privacyBlur;
+            btnPrivacy.textContent = state.settings.privacyBlur ? "Privacy Blur: ON" : "Privacy Blur: OFF";
+            btnPrivacy.classList.toggle('btn-secondary', state.settings.privacyBlur);
+            pushLog("Privacy Guard", `DPDP On-Device Gaussian Blur toggled ${state.settings.privacyBlur ? 'ENABLED' : 'DISABLED'}.`);
+        });
+    }
+}
+
+function highlightAgent(stepNumber) {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`agent-step-${i}`);
+        if (el) el.classList.toggle('active', i === stepNumber);
+    }
+}
+
+function addNewWorkOrder(ticket, type, sev, loc, passes) {
+    state.workOrders.unshift({
+        ticket, type, sev, loc, passes, sla: "47h 58m remaining", status: "DISPATCHED"
     });
+    renderWorkOrdersTable();
+}
 
-    // Initial render & 3s polling loop
-    renderSocialFeed();
-    fetchDashboardData();
-    setInterval(fetchDashboardData, 3000);
-});
+function renderWorkOrdersTable() {
+    const tbody = document.getElementById('work-orders-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = state.workOrders.map(w => `
+        <tr>
+            <td><strong style="color:#00E5FF;">${w.ticket}</strong></td>
+            <td><span class="pill-tag ${w.sev.includes('CRITICAL') ? 'pill-orange' : 'pill-cyan'}">${w.type}</span></td>
+            <td>${w.loc}</td>
+            <td><strong>${w.passes} passes</strong></td>
+            <td><span style="color:#10B981;">${w.sla}</span></td>
+            <td><span class="pill-tag pill-cyan">${w.status}</span></td>
+        </tr>
+    `).join('');
+}
+
+function triggerDriverAlert(hazard, loc, advice) {
+    const modal = document.getElementById('driver-alert-modal');
+    const titleEl = document.getElementById('driver-alert-title');
+    const locEl = document.getElementById('driver-alert-loc');
+    const adviceEl = document.getElementById('driver-alert-advice');
+
+    if (titleEl) titleEl.textContent = hazard;
+    if (locEl) locEl.textContent = loc;
+    if (adviceEl) adviceEl.textContent = advice;
+
+    if (modal) modal.classList.add('show');
+}
+
+// 6. Polling Bus Movement Simulation
+function startRealtimePolling() {
+    setInterval(() => {
+        state.buses.forEach(b => {
+            b.lat += (Math.random() - 0.5) * 0.0006;
+            b.lng += (Math.random() - 0.5) * 0.0006;
+            if (b.marker) {
+                b.marker.setLatLng([b.lat, b.lng]);
+            }
+        });
+    }, 3000);
+}
