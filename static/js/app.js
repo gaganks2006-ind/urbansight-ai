@@ -453,7 +453,7 @@ const CORRIDORS = {
     }
 };
 
-let currentCorridorKey = 'mysuru-orr';
+let currentCorridorKey = 'hunsur-rd';
 
 const mediaState = {
     mode: 'video', // 'video' | 'image' | 'live-camera'
@@ -1766,7 +1766,7 @@ renderWorkOrdersTable();
     // 3. Drop marker and Fly Map to location in Mysuru / Bengaluru
     renderHazardsOnMap();
     if (state.map) {
-state.map.flyTo([d.lat, d.lng], 15, { duration: 1.2 });
+// Map view preserved
     }
 
     // 4. Update Terminal Logs with Multi-Agent Handoff
