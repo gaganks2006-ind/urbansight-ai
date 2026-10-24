@@ -2434,8 +2434,8 @@ h1, h2, h3 {
                         <!-- THE SINGLE MASTER BUTTON -->
                         <button class="btn-master-simulate" id="btn-master-simulate" onclick="toggleAutoSimulateAllVideos()" style="background:linear-gradient(135deg, #0284C7 0%, #0369A1 100%); color:#FFFFFF; border:1px solid #0284C7; border-radius:6px; padding:6px 14px; font-size:0.82rem; font-weight:800; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px rgba(2,132,199,0.35); transition:all 0.15s ease;">
                             <i class="fa-solid fa-play" id="master-sim-icon" style="color:#FDE047;"></i>
-                            <span id="master-sim-label">▶️ Simulate All 4 Transit Inspection Videos</span>
-                            <span id="master-sim-badge" style="background:rgba(255,255,255,0.25); font-size:0.68rem; font-family:'JetBrains Mono',monospace; padding:2px 7px; border-radius:4px; font-weight:700;">CORRIDOR 1 / 4</span>
+                            <span id="master-sim-label">▶️ Simulate Transit Inspection Tour</span>
+                            <span id="master-sim-badge" style="background:rgba(255,255,255,0.25); font-size:0.68rem; font-family:'JetBrains Mono',monospace; padding:2px 7px; border-radius:4px; font-weight:700;">CORRIDOR 1 / 2</span>
                         </button>
 
                         <!-- Quick Skip Next Button -->
@@ -2447,7 +2447,7 @@ h1, h2, h3 {
                     <!-- Active Corridor Indicator Strip -->
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span id="active-video-corridor-title" style="font-size:0.75rem; font-weight:700; color:#0369A1; font-family:var(--font-mono); background:#FFFFFF; padding:4px 8px; border-radius:4px; border:1px solid var(--border-medium);">
-                            📍 1. Mysuru Outer Ring Road (Pothole 20.2cm)
+                            📍 1. Hunsur Road Corridor (Pothole 14.8cm)
                         </span>
                         <input type="file" id="media-upload-input" accept="video/*,image/*" style="display:none;" onchange="handleMediaUpload(event)">
                         <button type="button" onclick="document.getElementById('media-upload-input').click()" style="background:transparent; border:none; color:var(--text-tertiary); font-size:0.72rem; cursor:pointer; padding:4px;" title="Optional: Custom file upload">
@@ -2461,8 +2461,7 @@ h1, h2, h3 {
                     <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-weight:700; color:#0284C7;"><i class="fa-solid fa-location-crosshairs"></i> Video Corridor:</span>
                         <select class="corridor-select" id="video-corridor-select" onchange="changeVideoCorridor(this.value)">
-                            <option value="mysuru-orr" selected>Mysuru Outer Ring Road (VVCE Gokulam ➔ Columbia Asia)</option>
-                            <option value="hunsur-rd">Hunsur Road (Kalamandira Signal ➔ University Gate)</option>
+                            <option value="hunsur-rd" selected>Hunsur Road (Kalamandira Signal ➔ University Gate)</option>
                             <option value="sayyaji-rao">Sayyaji Rao Road (Agrahara ➔ Mysore Palace)</option>
                             <option value="live-gps">🛰️ Live Browser GPS / Phone Geolocation</option>
                         </select>
@@ -2793,7 +2792,7 @@ h1, h2, h3 {
 
             // 1. Pan / fly map to Mysuru detection location
             if (state.map) {
-                state.map.flyTo([12.3360, 76.6210], 15, { duration: 1.0 });
+                // Map view preserved
                 try {
                     const ping = L.circleMarker([12.3360, 76.6210], {
                         radius: 24,
@@ -2880,7 +2879,7 @@ h1, h2, h3 {
             initClock();
             initLeafletMap();
             initDashcamSimulator();
-            loadSampleMedia('mysuru-real-1');
+            loadSampleMedia('mysuru-real-2');
             initEventLogFeed();
             initActionListeners();
             renderWorkOrdersTable();
@@ -3107,7 +3106,7 @@ h1, h2, h3 {
             state.map = L.map('gis-map', {
                 zoomControl: true,
                 scrollWheelZoom: true
-            }).setView([12.3360, 76.6210], 13); // Default Centered on Mysuru (MCC & MUDA / VVCE Campus)
+            }).setView([12.3160, 76.6420], 14); // Default Centered on Mysuru (MCC & MUDA / VVCE Campus)
 
             // OpenStreetMap standard tile layer (Clean, crisp, no API key required, zero watermarks)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -3322,7 +3321,7 @@ const CORRIDORS = {
     }
 };
 
-let currentCorridorKey = 'mysuru-orr';
+let currentCorridorKey = 'hunsur-rd';
 
 const mediaState = {
     mode: 'video', // 'video' | 'image' | 'live-camera'
@@ -3395,7 +3394,7 @@ function changeVideoCorridor(key) {
     } else {
         calculateCorridorCoordinates();
         const corr = CORRIDORS[key];
-        if (state.map && corr) state.map.setView([corr.startLat, corr.startLng], 15);
+        // Map view preserved
     }
     updateMediaSidebar();
 }
@@ -4110,7 +4109,7 @@ function initDashcamSimulator() {
         if (typeof runTourStep === 'function') {
             runTourStep(0);
         } else if (typeof loadSampleMedia === 'function') {
-            loadSampleMedia('mysuru-real-1');
+            loadSampleMedia('mysuru-real-2');
         }
     }, 350);
 
@@ -4424,31 +4423,9 @@ function initDashcamSimulator() {
 const TRANSIT_SIMULATION_CORRIDORS = [
     {
         index: 1,
-        title: "1. Mysuru Outer Ring Road (Pothole 20.2cm · Critical P1)",
-        shortTitle: "📍 1. Mysuru ORR (Pothole 20.2cm)",
-        badgeText: "CORRIDOR 1 / 4",
-        videoSrc: "static/videos/mysuru_road_inspection_1.mp4",
-        corridorKey: "mysuru-orr",
-        busId: "KSRTC-KA09-E102",
-        sourceName: "Mysuru ORR Dashcam (KSRTC-KA09-E102)",
-        defectType: "POTHOLE",
-        rdd: "D40 (Pothole / Subsidence)",
-        depth: "20.2cm",
-        sev: "CRITICAL_P1",
-        conf: "98.6%",
-        ticketId: "PWD-OCT-0941",
-        sorCode: "CPWD 16.14.2 (Dense Bituminous Macadam)",
-        lat: 12.3360,
-        lng: 76.6210,
-        loc: "VVCE Ring Road Junction, Gokulam, Mysuru",
-        zoom: 15,
-        playDurationMs: 8000
-    },
-    {
-        index: 2,
-        title: "2. Hunsur Road Corridor (Depression 14.8cm · Critical P1)",
-        shortTitle: "📍 2. Hunsur Road (Pothole 14.8cm)",
-        badgeText: "CORRIDOR 2 / 4",
+        title: "1. Hunsur Road Corridor (Depression 14.8cm · Critical P1)",
+        shortTitle: "📍 1. Hunsur Road (Pothole 14.8cm)",
+        badgeText: "CORRIDOR 1 / 2",
         videoSrc: "static/videos/mysuru_road_inspection_2.mp4",
         corridorKey: "hunsur-rd",
         busId: "KSRTC-MY09-C330",
@@ -4464,13 +4441,13 @@ const TRANSIT_SIMULATION_CORRIDORS = [
         lng: 76.6320,
         loc: "Hunsur Road Kalamandira Signal, Mysuru",
         zoom: 15,
-        playDurationMs: 8000
+        playDurationMs: 9000
     },
     {
-        index: 3,
-        title: "3. Sayyaji Rao Heritage Corridor (Crack 4.5cm · High P2)",
-        shortTitle: "📍 3. Sayyaji Rao (Crack 4.5cm)",
-        badgeText: "CORRIDOR 3 / 4",
+        index: 2,
+        title: "2. Sayyaji Rao Heritage Corridor (Crack 4.5cm · High P2)",
+        shortTitle: "📍 2. Sayyaji Rao (Crack 4.5cm)",
+        badgeText: "CORRIDOR 2 / 2",
         videoSrc: "static/videos/mysuru_road_inspection_3.mp4",
         corridorKey: "sayyaji-rao",
         busId: "KSRTC-KA09-E102",
@@ -4486,29 +4463,7 @@ const TRANSIT_SIMULATION_CORRIDORS = [
         lng: 76.6538,
         loc: "Sayyaji Rao Road Heritage Corridor, Mysuru",
         zoom: 15,
-        playDurationMs: 8000
-    },
-    {
-        index: 4,
-        title: "4. Bengaluru 500D Silk Board Underpass (Waterlogging 35m · High P2)",
-        shortTitle: "📍 4. Bengaluru 500D (Waterlogging)",
-        badgeText: "CORRIDOR 4 / 4",
-        videoSrc: "static/videos/mysuru_road_inspection_1.mp4",
-        corridorKey: "bmtc-orr",
-        busId: "BMTC-KA57-E912",
-        sourceName: "Bengaluru ORR Flyover Dashcam (BMTC-KA57-E912)",
-        defectType: "WATERLOGGING",
-        rdd: "W01 (Monsoon Waterlogging & Hydroplaning Risk)",
-        depth: "35m Length",
-        sev: "HIGH_P2",
-        conf: "96.4%",
-        ticketId: "PWD-OCT-0882",
-        sorCode: "CPWD 11.4.2 (Drain De-silt & Sump Clearing)",
-        lat: 12.9125,
-        lng: 77.6395,
-        loc: "Silk Board Underpass South Lane, Bengaluru",
-        zoom: 14,
-        playDurationMs: 8000
+        playDurationMs: 9000
     }
 ];
 
@@ -4529,7 +4484,7 @@ function runTourStep(index) {
     const icon = document.getElementById('master-sim-icon');
     const title = document.getElementById('active-video-corridor-title');
     if (badge) badge.textContent = item.badgeText;
-    if (label) label.textContent = autoTourActive ? "⏸️ Pause 4-Video Tour" : "▶️ Resume 4-Video Tour";
+    if (label) label.textContent = autoTourActive ? "⏸️ Pause Inspection Tour" : "▶️ Resume Inspection Tour";
     if (icon) icon.className = autoTourActive ? "fa-solid fa-pause" : "fa-solid fa-play";
     if (title) title.textContent = item.shortTitle;
 
@@ -4581,10 +4536,7 @@ function runTourStep(index) {
     };
     updateMediaSidebar();
 
-    // Fly map to active corridor
-    if (state.map) {
-        state.map.flyTo([item.lat, item.lng], item.zoom, { duration: 1.2 });
-    }
+    // Map view stays stationary (auto-flyTo disabled)
 
     // Trigger Multi-Agent Dispatch & Drop Marker
     setTimeout(() => {
@@ -5069,9 +5021,7 @@ function runAIAnalysisAndDispatch(targetPothole) {
 
             // 3. Drop marker and Fly Map to location in Mysuru / Bengaluru
             renderHazardsOnMap();
-            if (state.map) {
-                if (typeof d.lat === "number" && typeof d.lng === "number" && !isNaN(d.lat) && !isNaN(d.lng)) { state.map.flyTo([d.lat, d.lng], 15, { duration: 1.2 }); }
-            }
+            // Map view remains steady - marker is added without moving viewport
 
             // 4. Update Terminal Logs with Multi-Agent Handoff
             const now = new Date().toTimeString().split(' ')[0];
